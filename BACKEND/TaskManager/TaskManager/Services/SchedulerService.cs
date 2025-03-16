@@ -33,6 +33,18 @@ namespace TaskManager.Services
                 EnsureDayExists(newDay);
                 ScheduleDays[newDay - 1].Assignments.Add(new TaskAssignment(task.Name, task.TotalMinutes));
             }
+            else
+            {
+                // Darabolható feladat: először próbáljuk meg egyben elhelyezni, ha lehetséges
+                for (int i = 0; i < ScheduleDays.Count; i++)
+                {
+                    if (ScheduleDays[i].RemainingMinutes >= task.TotalMinutes + (ScheduleDays[i].Assignments.Count > 0 ? DaySchedule.BreakTime : 0))
+                    {
+                        ScheduleDays[i].Assignments.Add(new TaskAssignment(task.Name, task.TotalMinutes, ScheduleDays[i].DayNumber, task.AvailableDays));
+                        return;
+                    }
+                }
+            }
         }
 
     }
