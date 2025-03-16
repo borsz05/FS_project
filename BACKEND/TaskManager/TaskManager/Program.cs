@@ -1,3 +1,5 @@
+using TaskManager.Services;
+
 namespace TaskManager
 {
     public class Program
@@ -7,6 +9,7 @@ namespace TaskManager
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddControllersWithViews();
             builder.Services.AddSwaggerGen();
+            builder.Services.AddScoped<ISchedulerService, SchedulerService>();
             var app = builder.Build();
 
             app.UseRouting();
