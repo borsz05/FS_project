@@ -6,6 +6,7 @@ namespace TaskManager
         {
             var builder = WebApplication.CreateBuilder(args);
             builder.Services.AddControllersWithViews();
+            builder.Services.AddSwaggerGen();
             var app = builder.Build();
 
             app.UseRouting();
@@ -15,6 +16,12 @@ namespace TaskManager
                 pattern: "{controller}/{action}/{id}"
                 );
 
+
+            if (app.Environment.IsDevelopment())
+            {
+                app.UseSwagger();
+                app.UseSwaggerUI();
+            }
 
             app.Run();
         }
