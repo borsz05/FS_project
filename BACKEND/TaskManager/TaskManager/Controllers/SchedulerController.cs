@@ -13,6 +13,11 @@ namespace TaskManager.Controllers
         {
             this.schedulerService = schedulerService;
         }
+        [HttpGet]
+        public IEnumerable<DaySchedule> GetSchedule()
+        {
+            return schedulerService.ScheduleDays;
+        }
         [HttpPost]
         public void AddTask([FromBody] TaskItem task)
         {

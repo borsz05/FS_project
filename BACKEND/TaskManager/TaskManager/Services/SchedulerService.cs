@@ -17,14 +17,15 @@ namespace TaskManager.Services
             while (ScheduleDays.Count < dayNumber)
                 ScheduleDays.Add(new DaySchedule(ScheduleDays.Count + 1));
         }
+        //modositas: nem osztja szet a feladatokat feleslegesen, ezzel felboritva az idoegyensulyt a napok kozott
         public void InsertTask(TaskItem task)
         {
             if (!task.Divisible)
             {
-                // Nem darabolható: keressük az első olyan napot, ahol elfér (szünetek figyelembe véve)
+                // Nem darabolható: keressük az első olyan napot, ahol elfér.
                 foreach (var day in ScheduleDays)
                 {
-                    if (day.RemainingMinutes >= task.TotalMinutes + (day.Assignments.Count > 0 ? DaySchedule.BreakTime : 0))
+                    if (day.RemainingMinutes >= task.TotalMinutes + (day.Assignments.Any() ? DaySchedule.BreakTime : 0))
                     {
                         day.Assignments.Add(new TaskAssignment(task.Name, task.TotalMinutes));
                         return;
@@ -36,17 +37,98 @@ namespace TaskManager.Services
             }
             else
             {
-                // Darabolható feladat: először próbáljuk meg egyben elhelyezni, ha lehetséges
+                // Próbáljuk meg egyben elhelyezni a feladatot, ha lehetséges.
                 for (int i = 0; i < ScheduleDays.Count; i++)
                 {
-                    if (ScheduleDays[i].RemainingMinutes >= task.TotalMinutes + (ScheduleDays[i].Assignments.Count > 0 ? DaySchedule.BreakTime : 0))
+                    if (ScheduleDays[i].RemainingMinutes >= task.TotalMinutes + (ScheduleDays[i].Assignments.Any() ? DaySchedule.BreakTime : 0))
                     {
                         ScheduleDays[i].Assignments.Add(new TaskAssignment(task.Name, task.TotalMinutes, ScheduleDays[i].DayNumber, task.AvailableDays));
                         return;
                     }
                 }
+                // Candidate blokk kiválasztása: próbáljunk candidate blokk méreteket 1-től task.AvailableDays-ig.
+                int bestCandidateBlockSize = task.AvailableDays;
+                int bestCandidateStart = -1;
+                int[] bestDistribution = null;
+                int bestScore = int.MaxValue;
+
+                for (int candidateBlockSize = 1; candidateBlockSize <= task.AvailableDays; candidateBlockSize++)
+                {
+                    int candidateStart = -1;
+                    // Megkeressük a candidate blokkot a meglévő napok között.
+                    for (int i = 0; i <= ScheduleDays.Count - candidateBlockSize; i++)
+                    {
+                        int totalFree = 0;
+                        for (int j = 0; j < candidateBlockSize; j++)
+                        {
+                            EnsureDayExists(i + j + 1);
+                            totalFree += ScheduleDays[i + j].RemainingMinutes;
+                        }
+                        if (totalFree >= task.TotalMinutes)
+                        {
+                            candidateStart = i;
+                            break;
+                        }
+                    }
+                    // Ha nem találunk megfelelő blokkot, új napokat adunk hozzá.
+                    if (candidateStart == -1)
+                    {
+                        candidateStart = ScheduleDays.Count;
+                        for (int j = 0; j < candidateBlockSize; j++)
+                            EnsureDayExists(candidateStart + j);
+                    }
+                    int[] distribution = FindOptimalDistribution(task.TotalMinutes, candidateBlockSize, candidateStart);
+                    // Ha nem sikerült érvényes elosztást találni, lépjünk tovább.
+                    if (distribution == null)
+                        continue;
+
+                    // Számoljuk az elosztás "score"-át: a kisebb terheléskülönbség és kevesebb fragmentum jobb.
+                    int maxFinal = int.MinValue, minFinal = int.MaxValue;
+                    int fragmentsCount = 0;
+                    for (int i = 0; i < candidateBlockSize; i++)
+                    {
+                        int load = ScheduleDays[candidateStart + i].EffectiveLoad + distribution[i];
+                        maxFinal = Math.Max(maxFinal, load);
+                        minFinal = Math.Min(minFinal, load);
+                        if (distribution[i] > 0)
+                            fragmentsCount++;
+                    }
+                    int cost = maxFinal - minFinal;
+                    int score = cost + fragmentsCount * 10; // A fragmentumok száma súlyozva van.
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        bestCandidateBlockSize = candidateBlockSize;
+                        bestCandidateStart = candidateStart;
+                        bestDistribution = distribution;
+                    }
+                }
+                // Fallback: ha egy candidate blokk esetén sem találtuk meg az érvényes elosztást,
+                // használjuk a maximális candidate blokkot.
+                if (bestDistribution == null)
+                {
+                    int candidateBlockSize = task.AvailableDays;
+                    int candidateStart = ScheduleDays.Count;
+                    for (int j = 0; j < candidateBlockSize; j++)
+                        EnsureDayExists(candidateStart + j);
+                    bestDistribution = FindOptimalDistribution(task.TotalMinutes, candidateBlockSize, candidateStart);
+                    bestCandidateBlockSize = candidateBlockSize;
+                    bestCandidateStart = candidateStart;
+                }
+                int taskStartDay = ScheduleDays[bestCandidateStart].DayNumber;
+                for (int j = 0; j < bestCandidateBlockSize; j++)
+                {
+                    int assigned = bestDistribution[j];
+                    if (assigned > 0)
+                    {
+                        ScheduleDays[bestCandidateStart + j].Assignments.Add(
+                            new TaskAssignment(task.Name, assigned, taskStartDay, task.AvailableDays)
+                        );
+                    }
+                }
             }
         }
+
 
 
 
@@ -105,5 +187,7 @@ namespace TaskManager.Services
             }
             return best;
         }
+
+        
     }
 }
