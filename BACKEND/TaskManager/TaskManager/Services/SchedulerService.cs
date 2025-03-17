@@ -28,6 +28,7 @@ namespace TaskManager.Services
                     if (day.RemainingMinutes >= task.TotalMinutes + (day.Assignments.Any() ? DaySchedule.BreakTime : 0))
                     {
                         day.Assignments.Add(new TaskAssignment(task.Name, task.TotalMinutes));
+                        OptimizeSchedule();
                         return;
                     }
                 }
@@ -43,6 +44,7 @@ namespace TaskManager.Services
                     if (ScheduleDays[i].RemainingMinutes >= task.TotalMinutes + (ScheduleDays[i].Assignments.Any() ? DaySchedule.BreakTime : 0))
                     {
                         ScheduleDays[i].Assignments.Add(new TaskAssignment(task.Name, task.TotalMinutes, ScheduleDays[i].DayNumber, task.AvailableDays));
+                        OptimizeSchedule();
                         return;
                     }
                 }
@@ -133,6 +135,7 @@ namespace TaskManager.Services
                     }
                 }
             }
+            OptimizeSchedule();
             CleanupEmptyDays();
         }
 
@@ -212,6 +215,67 @@ namespace TaskManager.Services
             }
         }
 
+        // Az OptimizeSchedule metódus végigmegy a napokon, és ha két szomszédos nap között lényeges eltérés van,
+        // megpróbálja áthelyezni az osztható feladatok egy részét a jobban üres napra,
+        // figyelembe véve, hogy a feladat csak a saját első napjától számított ablakban mozgatható.
+        private void OptimizeSchedule()
+        {
+            bool improvement;
+            int iterations = 0;
+            int maxIterations = 1000;
+            do
+            {
+                improvement = false;
+                // Vizsgáljuk az összes szomszédos nap párt
+                for (int i = 0; i < ScheduleDays.Count - 1; i++)
+                {
+                    DaySchedule dayA = ScheduleDays[i];
+                    DaySchedule dayB = ScheduleDays[i + 1];
 
+                    // Határozzuk meg, melyik nap van jobban terhelve
+                    DaySchedule dayHigh = dayA.EffectiveLoad > dayB.EffectiveLoad ? dayA : dayB;
+                    DaySchedule dayLow = dayA.EffectiveLoad > dayB.EffectiveLoad ? dayB : dayA;
+                    int diff = dayHigh.EffectiveLoad - dayLow.EffectiveLoad;
+
+                    if (diff <= 0)
+                        continue;
+
+                    // Próbáljunk meg áthelyezni osztható feladat részeket a nagyterheltségű napról a kevésbé terhelt napra
+                    foreach (var assignment in dayHigh.Assignments.Where(a => a.IsDivisible).ToList())
+                    {
+                        // Ellenőrizzük, hogy dayLow a feladat "megengedett" ablakán belül van-e.
+                        if (dayLow.DayNumber >= assignment.TaskStartDay &&
+                            dayLow.DayNumber < assignment.TaskStartDay + assignment.TaskAvailableDays)
+                        {
+                            // Számoljuk ki, hány percet tudunk áthelyezni.
+                            int availableForLow = dayLow.RemainingMinutes;
+                            // Ha dayLow még nem tartalmazza ezt a feladatot, és nem üres, akkor új felosztási költség (BreakTime) lép fel.
+                            bool alreadyPresent = dayLow.Assignments.Any(a => a.TaskName == assignment.TaskName);
+                            int extraBreakCost = alreadyPresent ? 0 : (dayLow.Assignments.Any() ? DaySchedule.BreakTime : 0);
+                            // A maximum áthelyezhető mennyiség: vagy az assignment maradéka, vagy egy rész a diffból.
+                            int movable = Math.Min(assignment.Minutes, diff / 2);
+                            int canMove = Math.Min(movable, availableForLow - extraBreakCost);
+                            if (canMove > 0)
+                            {
+                                // Áthelyezés: csökkentjük az eredeti felosztásnál a perceket,
+                                // majd dayLow-ban vagy bővítjük a meglévő assignmentot, vagy új részfeladatként hozzáadjuk.
+                                assignment.Minutes -= canMove;
+                                if (assignment.Minutes == 0)
+                                    dayHigh.Assignments.Remove(assignment);
+
+                                var target = dayLow.Assignments.FirstOrDefault(a => a.TaskName == assignment.TaskName);
+                                if (target != null)
+                                    target.Minutes += canMove;
+                                else
+                                    dayLow.Assignments.Add(new TaskAssignment(assignment.TaskName, canMove, assignment.TaskStartDay, assignment.TaskAvailableDays));
+
+                                improvement = true;
+                            }
+                        }
+                    }
+                }
+                iterations++;
+            } while (improvement && iterations < maxIterations);
+        }
     }
 }
