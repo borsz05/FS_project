@@ -17,7 +17,7 @@ namespace TaskManager.Services
             while (ScheduleDays.Count < dayNumber)
                 ScheduleDays.Add(new DaySchedule(ScheduleDays.Count + 1));
         }
-        //modositas: nem osztja szet a feladatokat feleslegesen, ezzel felboritva az idoegyensulyt a napok kozott
+
         public void InsertTask(TaskItem task)
         {
             if (!task.Divisible)
@@ -133,10 +133,8 @@ namespace TaskManager.Services
                     }
                 }
             }
+            CleanupEmptyDays();
         }
-
-
-
 
         //visszalépéses algoritmust használ arra,
         //hogy minden lehetséges módon elossza a H percnyi feladatot K egymást követő nap között,
@@ -145,34 +143,6 @@ namespace TaskManager.Services
         {
             var results = new List<int[]>();
             int[] current = new int[K];
-
-            // Fallback: ha H túl magas a candidate blokkban, számoljuk ki az egyenletes elosztást.
-            if (H > 1000 && K > 1)
-            {
-                int[] even = new int[K];
-                int baseVal = H / K;
-                int rem = H % K;
-                for (int i = 0; i < K; i++)
-                    even[i] = baseVal + (i < rem ? 1 : 0);
-                bool valid = true;
-                for (int i = 0; i < K; i++)
-                {
-                    EnsureDayExists(candidateStart + i + 1);
-                    int free = ScheduleDays[candidateStart + i].RemainingMinutes;
-                    if (ScheduleDays[candidateStart + i].Assignments.Any())
-                        free -= DaySchedule.BreakTime;
-                    if (even[i] > free)
-                    {
-                        valid = false;
-                        break;
-                    }
-                }
-                if (valid)
-                {
-                    results.Add(even);
-                    return results;
-                }
-            }
 
             void Recurse(int idx, int remaining)
             {
@@ -184,13 +154,13 @@ namespace TaskManager.Services
                 }
                 EnsureDayExists(candidateStart + idx + 1);
                 int free = ScheduleDays[candidateStart + idx].RemainingMinutes;
-                //// Ha már van feladat, akkor a szünetet is figyelembe kell venni!
-                //if (ScheduleDays[candidateStart + idx].Assignments.Any())
-                //{
-                //    free -= DaySchedule.BreakTime;
-                //}
+                if (ScheduleDays[candidateStart + idx].Assignments.Any())
+                {
+                    free -= DaySchedule.BreakTime;
+                }
 
-                for (int x = 0; x <= Math.Min(remaining, free); x++)
+                // limitáljuk x -et, hogy elkeruljuk a felesleges rekurziokat
+                for (int x = Math.Max(0, remaining - (K - idx - 1) * free); x <= Math.Min(remaining, free); x++)
                 {
                     current[idx] = x;
                     Recurse(idx + 1, remaining - x);
@@ -202,7 +172,6 @@ namespace TaskManager.Services
 
         // Kiválasztja a candidate blokk (candidateStart, hossz K) esetén a legjobb elosztást,
         // minimalizálja a napok EffectiveLoad közti maximum és minimum különbséget.
-
         private int[] FindOptimalDistribution(int H, int K, int candidateStart)
         {
             var distributions = GetDistributions(H, K, candidateStart);
@@ -228,6 +197,21 @@ namespace TaskManager.Services
             return best;
         }
 
-        
+        private void CleanupEmptyDays()
+        {
+            for (int i = ScheduleDays.Count - 1; i >= 1; i--)
+            {
+                if (ScheduleDays[i].Assignments.Count == 0)
+                {
+                    ScheduleDays.RemoveAt(i);
+                }
+                else
+                {
+                    break; // az első nem üres napnál megállunk
+                }
+            }
+        }
+
+
     }
 }
