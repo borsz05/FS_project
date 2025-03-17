@@ -146,6 +146,34 @@ namespace TaskManager.Services
             var results = new List<int[]>();
             int[] current = new int[K];
 
+            // Fallback: ha H túl magas a candidate blokkban, számoljuk ki az egyenletes elosztást.
+            if (H > 1000 && K > 1)
+            {
+                int[] even = new int[K];
+                int baseVal = H / K;
+                int rem = H % K;
+                for (int i = 0; i < K; i++)
+                    even[i] = baseVal + (i < rem ? 1 : 0);
+                bool valid = true;
+                for (int i = 0; i < K; i++)
+                {
+                    EnsureDayExists(candidateStart + i + 1);
+                    int free = ScheduleDays[candidateStart + i].RemainingMinutes;
+                    if (ScheduleDays[candidateStart + i].Assignments.Any())
+                        free -= DaySchedule.BreakTime;
+                    if (even[i] > free)
+                    {
+                        valid = false;
+                        break;
+                    }
+                }
+                if (valid)
+                {
+                    results.Add(even);
+                    return results;
+                }
+            }
+
             void Recurse(int idx, int remaining)
             {
                 if (idx == K)
