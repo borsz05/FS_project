@@ -62,7 +62,13 @@ namespace TaskManager.Services
                         for (int j = 0; j < candidateBlockSize; j++)
                         {
                             EnsureDayExists(i + j + 1);
-                            totalFree += ScheduleDays[i + j].RemainingMinutes;
+                            int freeTime = ScheduleDays[i + j].RemainingMinutes;
+                            // Ha már van másik feladat, akkor a szünetet levonjuk!
+                            if (ScheduleDays[i + j].Assignments.Any())
+                            {
+                                freeTime -= DaySchedule.BreakTime;
+                            }
+                            totalFree += freeTime;
                         }
                         if (totalFree >= task.TotalMinutes)
                         {
@@ -150,6 +156,12 @@ namespace TaskManager.Services
                 }
                 EnsureDayExists(candidateStart + idx + 1);
                 int free = ScheduleDays[candidateStart + idx].RemainingMinutes;
+                //// Ha már van feladat, akkor a szünetet is figyelembe kell venni!
+                //if (ScheduleDays[candidateStart + idx].Assignments.Any())
+                //{
+                //    free -= DaySchedule.BreakTime;
+                //}
+
                 for (int x = 0; x <= Math.Min(remaining, free); x++)
                 {
                     current[idx] = x;
