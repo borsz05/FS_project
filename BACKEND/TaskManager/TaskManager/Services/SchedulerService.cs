@@ -132,6 +132,7 @@ namespace TaskManager.Services
                         ScheduleDays[bestCandidateStart + j].Assignments.Add(
                             new TaskAssignment(task.Name, assigned, taskStartDay, task.AvailableDays)
                         );
+                        OptimizeSchedule();
                     }
                 }
             }
