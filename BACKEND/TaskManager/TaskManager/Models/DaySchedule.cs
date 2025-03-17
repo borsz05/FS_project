@@ -10,8 +10,15 @@
 
         public int TotalMinutes => Assignments.Where(a => a.Minutes > 0).Sum(a => a.Minutes);
 
-        public int EffectiveLoad => TotalMinutes + ((Assignments.Count > 0 ? Assignments.Count - 1 : 0) * BreakTime);
-
+        public int EffectiveLoad
+        {
+            get
+            {
+                var active = Assignments.Where(a => a.Minutes > 0).ToList();
+                int count = active.Count;
+                return TotalMinutes + (count > 0 ? (count - 1) * BreakTime : 0);
+            }
+        }
         public int RemainingMinutes => Capacity - EffectiveLoad;
 
         public DaySchedule(int dayNumber)
