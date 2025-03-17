@@ -202,15 +202,31 @@ namespace TaskManager.Services
 
         private void CleanupEmptyDays()
         {
+            // Eltávolítjuk az üres napokat (kivéve az első napot, ha szükséges)
             for (int i = ScheduleDays.Count - 1; i >= 1; i--)
             {
                 if (ScheduleDays[i].Assignments.Count == 0)
                 {
                     ScheduleDays.RemoveAt(i);
                 }
-                else
+            }
+            // Újranumeráljuk a napokat 1-től kezdődően
+            for (int i = 0; i < ScheduleDays.Count; i++)
+            {
+                int oldDayNumber = ScheduleDays[i].DayNumber;
+                int newDayNumber = i + 1;
+                if (oldDayNumber != newDayNumber)
                 {
-                    break; // az első nem üres napnál megállunk
+                    ScheduleDays[i].DayNumber = newDayNumber;
+                    // Ha szükséges, frissítjük az adott naphoz tartozó feladatok TaskStartDay értékét is,
+                    // ha az megegyezik az eredeti nap sorszámával.
+                    foreach (var assignment in ScheduleDays[i].Assignments)
+                    {
+                        if (assignment.TaskStartDay == oldDayNumber)
+                        {
+                            assignment.TaskStartDay = newDayNumber;
+                        }
+                    }
                 }
             }
         }
