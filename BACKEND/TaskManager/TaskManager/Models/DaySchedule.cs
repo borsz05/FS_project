@@ -6,7 +6,7 @@
         public List<TaskAssignment> Assignments { get; set; } = new List<TaskAssignment>();
 
         public const int Capacity = 600;
-        public const int BreakTime = 15;
+        public const int BreakTime = 30;
 
         public int TotalMinutes => Assignments.Where(a => a.Minutes > 0).Sum(a => a.Minutes);
 

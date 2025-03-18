@@ -1,4 +1,6 @@
-﻿using TaskManager.Models;
+﻿using System.Diagnostics.Tracing;
+using System.Runtime.CompilerServices;
+using TaskManager.Models;
 
 namespace TaskManager.Services
 {
@@ -33,9 +35,12 @@ namespace TaskManager.Services
                         if (existing != null)
                             existing.Minutes += task.TotalMinutes;
                         else
+                        {
                             day.Assignments.Add(new TaskAssignment(task.Id, task.Name, task.TotalMinutes));
-                        GlobalRebalance();
-                        return;
+                            CleanupEmptyDays();
+                            GlobalRebalance();
+                        }
+                            return;
                     }
                 }
                 int newDay = ScheduleDays.Count + 1;
@@ -44,6 +49,18 @@ namespace TaskManager.Services
             }
             else
             {
+                // Új napok hozzáadása a minimum szükséges mennyiségben
+                int minRequiredDays = Math.Min(
+                    (int)Math.Ceiling((double)task.TotalMinutes / DaySchedule.Capacity),
+                    task.AvailableDays
+                );
+                int counter = 0;
+                // Ellenőrizzük, hogy van-e elég nap a blokkhoz
+                while (counter < minRequiredDays)
+                {
+                    EnsureDayExists(ScheduleDays.Count + 1);
+                    counter++;
+                }
                 // Próbáljuk meg egyben elhelyezni a feladatot, ha lehetséges.
                 for (int i = 0; i < ScheduleDays.Count; i++)
                 {
@@ -53,8 +70,11 @@ namespace TaskManager.Services
                         if (existing != null)
                             existing.Minutes += task.TotalMinutes;
                         else
+                        {
                             ScheduleDays[i].Assignments.Add(new TaskAssignment(task.Id, task.Name, task.TotalMinutes, ScheduleDays[i].DayNumber, task.AvailableDays));
-                        GlobalRebalance();
+                            CleanupEmptyDays();
+                            GlobalRebalance();
+                        }
                         return;
                     }
                 }
@@ -123,6 +143,10 @@ namespace TaskManager.Services
                     int candidateStart = ScheduleDays.Count;
                     for (int j = 0; j < candidateBlockSize; j++)
                         EnsureDayExists(candidateStart + j);
+                    if (task.TotalMinutes >= DaySchedule.Capacity)
+                    {
+                        candidateStart = ScheduleDays.Count - minRequiredDays;
+                    }
                     bestDistribution = FindOptimalDistribution(task.TotalMinutes, candidateBlockSize, candidateStart);
                     bestCandidateBlockSize = candidateBlockSize;
                     bestCandidateStart = candidateStart;
@@ -138,15 +162,17 @@ namespace TaskManager.Services
                         if (existing != null)
                             existing.Minutes += assigned;
                         else
+                        {
                             day.Assignments.Add(new TaskAssignment(task.Id, task.Name, assigned, taskStartDay, task.AvailableDays));
-                        GlobalRebalance();
+                            GlobalRebalance();
+                        }
+
                     }
                 }
             }
             CleanupEmptyDays();
             GlobalRebalance();
         }
-
 
         // Visszalépéses algoritmust használ arra, hogy minden lehetséges módon elossza a H percnyi feladatot K egymást követő nap között,
         // figyelembe véve az adott napok szabad perceit.
@@ -276,7 +302,7 @@ namespace TaskManager.Services
         //        iterations++;
         //    } while (improvement && iterations < maxIterations);
         //}
-        
+
         public void GlobalRebalance()
         {
             int iteration = 0;
@@ -309,8 +335,55 @@ namespace TaskManager.Services
                     break;
             }
             CleanupEmptyDays();
+            EnsureCapacityLimit();
         }
 
-        
+        public void EnsureCapacityLimit()
+        {
+            foreach (var day in ScheduleDays)
+            {
+                if (day.EffectiveLoad > DaySchedule.Capacity)
+                {
+                    int excess = day.EffectiveLoad - DaySchedule.Capacity;
+
+                    // Először próbáljuk áthelyezni a darabolható feladatokat
+                    var movableTasks = day.Assignments
+                        .Where(a => a.IsDivisible)
+                        .OrderByDescending(a => a.Minutes) // Nagyobb feladatokkal kezdünk
+                        .ToList();
+
+                    foreach (var task in movableTasks)
+                    {
+                        if (excess <= 0) break;
+
+                        var otherDay = ScheduleDays
+                            .Where(d => d != day && d.RemainingMinutes >= 15) // Olyan napot keresünk, ahol van legalább egy kis szabad hely
+                            .OrderBy(d => d.EffectiveLoad) // A legkevésbé terhelt napra helyezünk át
+                            .FirstOrDefault();
+
+                        if (otherDay != null)
+                        {
+                            int transferable = Math.Min(task.Minutes, excess);
+                            task.Minutes -= transferable;
+                            excess -= transferable;
+
+                            // Ha az adott nap már tartalmazza ezt a feladatot, növeljük annak az idejét
+                            var existingTask = otherDay.Assignments
+                                .FirstOrDefault(a => a.TaskName == task.TaskName && a.IsDivisible);
+
+                            if (existingTask != null)
+                            {
+                                existingTask.Minutes += transferable;
+                            }
+                            else
+                            {
+                                otherDay.Assignments.Add(new TaskAssignment(task.TaskId,task.TaskName, transferable, otherDay.DayNumber, task.TaskAvailableDays));
+                            }
+
+                        }
+                    }
+                }
+            }
+        }
     }
 }
