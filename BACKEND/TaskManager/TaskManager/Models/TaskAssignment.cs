@@ -2,21 +2,26 @@
 {
     public class TaskAssignment
     {
-        public string TaskName { get; set; }
+        public string TaskId { get; set; }  
+        public string TaskName { get; set; }  
         public int Minutes { get; set; }
         public bool IsDivisible { get; set; }
         public int TaskStartDay { get; set; }
         public int TaskAvailableDays { get; set; }
 
-        public TaskAssignment(string taskName, int minutes)
+        // Konstruktor nem darabolható feladatokhoz
+        public TaskAssignment(string taskId, string taskName, int minutes)
         {
+            TaskId = taskId;
             TaskName = taskName;
             Minutes = minutes;
             IsDivisible = false;
         }
 
-        public TaskAssignment(string taskName, int minutes, int taskStartDay, int taskAvailableDays)
+        // Konstruktor darabolható feladatokhoz
+        public TaskAssignment(string taskId, string taskName, int minutes, int taskStartDay, int taskAvailableDays)
         {
+            TaskId = taskId;
             TaskName = taskName;
             Minutes = minutes;
             IsDivisible = true;
