@@ -34,7 +34,7 @@ namespace TaskManager.Services
                             existing.Minutes += task.TotalMinutes;
                         else
                             day.Assignments.Add(new TaskAssignment(task.Id, task.Name, task.TotalMinutes));
-                        OptimizeSchedule();
+                        GlobalRebalance();
                         return;
                     }
                 }
@@ -54,7 +54,7 @@ namespace TaskManager.Services
                             existing.Minutes += task.TotalMinutes;
                         else
                             ScheduleDays[i].Assignments.Add(new TaskAssignment(task.Id, task.Name, task.TotalMinutes, ScheduleDays[i].DayNumber, task.AvailableDays));
-                        OptimizeSchedule();
+                        GlobalRebalance();
                         return;
                     }
                 }
@@ -139,12 +139,12 @@ namespace TaskManager.Services
                             existing.Minutes += assigned;
                         else
                             day.Assignments.Add(new TaskAssignment(task.Id, task.Name, assigned, taskStartDay, task.AvailableDays));
-                        OptimizeSchedule();
+                        GlobalRebalance();
                     }
                 }
             }
-            OptimizeSchedule();
             CleanupEmptyDays();
+            GlobalRebalance();
         }
 
 
@@ -231,50 +231,86 @@ namespace TaskManager.Services
 
         // Az OptimizeSchedule metódus végigmegy a napokon, és ha két szomszédos nap között jelentős eltérés van,
         // megpróbálja áthelyezni az osztható feladatok egy részét a kevésbé terhelt napra, az id‑alapú logika szerint.
-        private void OptimizeSchedule()
+        //private void OptimizeSchedule()
+        //{
+        //    bool improvement;
+        //    int iterations = 0;
+        //    int maxIterations = 1000;
+        //    do
+        //    {
+        //        improvement = false;
+        //        for (int i = 0; i < ScheduleDays.Count - 1; i++)
+        //        {
+        //            DaySchedule dayA = ScheduleDays[i];
+        //            DaySchedule dayB = ScheduleDays[i + 1];
+        //            DaySchedule dayHigh = dayA.EffectiveLoad > dayB.EffectiveLoad ? dayA : dayB;
+        //            DaySchedule dayLow = dayA.EffectiveLoad > dayB.EffectiveLoad ? dayB : dayA;
+        //            int diff = dayHigh.EffectiveLoad - dayLow.EffectiveLoad;
+        //            if (diff <= 0)
+        //                continue;
+        //            foreach (var assignment in dayHigh.Assignments.Where(a => a.IsDivisible).ToList())
+        //            {
+        //                if (dayLow.DayNumber >= assignment.TaskStartDay &&
+        //                    dayLow.DayNumber < assignment.TaskStartDay + assignment.TaskAvailableDays)
+        //                {
+        //                    int availableForLow = dayLow.RemainingMinutes;
+        //                    bool alreadyPresent = dayLow.Assignments.Any(a => a.TaskId == assignment.TaskId);
+        //                    int extraBreakCost = alreadyPresent ? 0 : (dayLow.Assignments.Any() ? DaySchedule.BreakTime : 0);
+        //                    int movable = Math.Min(assignment.Minutes, diff / 2);
+        //                    int canMove = Math.Min(movable, availableForLow - extraBreakCost);
+        //                    if (canMove > 0)
+        //                    {
+        //                        assignment.Minutes -= canMove;
+        //                        if (assignment.Minutes == 0)
+        //                            dayHigh.Assignments.Remove(assignment);
+        //                        var target = dayLow.Assignments.FirstOrDefault(a => a.TaskId == assignment.TaskId);
+        //                        if (target != null)
+        //                            target.Minutes += canMove;
+        //                        else
+        //                            dayLow.Assignments.Add(new TaskAssignment(assignment.TaskId, assignment.TaskName, canMove, assignment.TaskStartDay, assignment.TaskAvailableDays));
+        //                        improvement = true;
+        //                    }
+        //                }
+        //            }
+        //        }
+        //        iterations++;
+        //    } while (improvement && iterations < maxIterations);
+        //}
+        
+        public void GlobalRebalance()
         {
-            bool improvement;
-            int iterations = 0;
-            int maxIterations = 1000;
-            do
+            int iteration = 0;
+            int maxIterations = 13; // Maximális iterációk, hogy elkerüljük a végtelen ciklust
+            while (iteration < maxIterations)
             {
-                improvement = false;
-                for (int i = 0; i < ScheduleDays.Count - 1; i++)
+                iteration++;
+                bool moved = false;
+                var maxDay = ScheduleDays.OrderByDescending(day => day.EffectiveLoad).First();
+                var minDay = ScheduleDays.OrderBy(day => day.EffectiveLoad).First();
+                int diff = maxDay.EffectiveLoad - minDay.EffectiveLoad;
+                if (diff <= 1)
+                    break;
+                foreach (var assignment in maxDay.Assignments.Where(a => a.IsDivisible).ToList())
                 {
-                    DaySchedule dayA = ScheduleDays[i];
-                    DaySchedule dayB = ScheduleDays[i + 1];
-                    DaySchedule dayHigh = dayA.EffectiveLoad > dayB.EffectiveLoad ? dayA : dayB;
-                    DaySchedule dayLow = dayA.EffectiveLoad > dayB.EffectiveLoad ? dayB : dayA;
-                    int diff = dayHigh.EffectiveLoad - dayLow.EffectiveLoad;
-                    if (diff <= 0)
-                        continue;
-                    foreach (var assignment in dayHigh.Assignments.Where(a => a.IsDivisible).ToList())
+                    int transferable = Math.Min(assignment.Minutes, minDay.RemainingMinutes);
+                    if (transferable > 0)
                     {
-                        if (dayLow.DayNumber >= assignment.TaskStartDay &&
-                            dayLow.DayNumber < assignment.TaskStartDay + assignment.TaskAvailableDays)
-                        {
-                            int availableForLow = dayLow.RemainingMinutes;
-                            bool alreadyPresent = dayLow.Assignments.Any(a => a.TaskId == assignment.TaskId);
-                            int extraBreakCost = alreadyPresent ? 0 : (dayLow.Assignments.Any() ? DaySchedule.BreakTime : 0);
-                            int movable = Math.Min(assignment.Minutes, diff / 2);
-                            int canMove = Math.Min(movable, availableForLow - extraBreakCost);
-                            if (canMove > 0)
-                            {
-                                assignment.Minutes -= canMove;
-                                if (assignment.Minutes == 0)
-                                    dayHigh.Assignments.Remove(assignment);
-                                var target = dayLow.Assignments.FirstOrDefault(a => a.TaskId == assignment.TaskId);
-                                if (target != null)
-                                    target.Minutes += canMove;
-                                else
-                                    dayLow.Assignments.Add(new TaskAssignment(assignment.TaskId, assignment.TaskName, canMove, assignment.TaskStartDay, assignment.TaskAvailableDays));
-                                improvement = true;
-                            }
-                        }
+                        assignment.Minutes -= transferable;
+                        var existing = minDay.Assignments.FirstOrDefault(a => a.TaskId == assignment.TaskId && a.IsDivisible);
+                        if (existing != null)
+                            existing.Minutes += transferable;
+                        else
+                            minDay.Assignments.Add(new TaskAssignment(assignment.TaskId, assignment.TaskName, transferable, minDay.DayNumber, 1));
+                        moved = true;
+                        break;
                     }
                 }
-                iterations++;
-            } while (improvement && iterations < maxIterations);
+                if (!moved)
+                    break;
+            }
+            CleanupEmptyDays();
         }
+
+        
     }
 }
