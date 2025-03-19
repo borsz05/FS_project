@@ -39,6 +39,7 @@ namespace TaskManager.Services
                             day.Assignments.Add(new TaskAssignment(task.Id, task.Name, task.TotalMinutes));
                             CleanupEmptyDays();
                             GlobalRebalance();
+                            EnsureCapacityLimit();
                         }
                             return;
                     }
@@ -49,18 +50,6 @@ namespace TaskManager.Services
             }
             else
             {
-                // Új napok hozzáadása a minimum szükséges mennyiségben
-                int minRequiredDays = Math.Min(
-                    (int)Math.Ceiling((double)task.TotalMinutes / DaySchedule.Capacity),
-                    task.AvailableDays
-                );
-                int counter = 0;
-                // Ellenőrizzük, hogy van-e elég nap a blokkhoz
-                while (counter < minRequiredDays)
-                {
-                    EnsureDayExists(ScheduleDays.Count + 1);
-                    counter++;
-                }
                 // Próbáljuk meg egyben elhelyezni a feladatot, ha lehetséges.
                 for (int i = 0; i < ScheduleDays.Count; i++)
                 {
@@ -74,6 +63,7 @@ namespace TaskManager.Services
                             ScheduleDays[i].Assignments.Add(new TaskAssignment(task.Id, task.Name, task.TotalMinutes, ScheduleDays[i].DayNumber, task.AvailableDays));
                             CleanupEmptyDays();
                             GlobalRebalance();
+                            EnsureCapacityLimit();
                         }
                         return;
                     }
@@ -143,10 +133,6 @@ namespace TaskManager.Services
                     int candidateStart = ScheduleDays.Count;
                     for (int j = 0; j < candidateBlockSize; j++)
                         EnsureDayExists(candidateStart + j);
-                    if (task.TotalMinutes >= DaySchedule.Capacity)
-                    {
-                        candidateStart = ScheduleDays.Count - minRequiredDays;
-                    }
                     bestDistribution = FindOptimalDistribution(task.TotalMinutes, candidateBlockSize, candidateStart);
                     bestCandidateBlockSize = candidateBlockSize;
                     bestCandidateStart = candidateStart;
@@ -157,6 +143,7 @@ namespace TaskManager.Services
                     int assigned = bestDistribution[j];
                     if (assigned > 0)
                     {
+                        EnsureDayExists(bestCandidateStart + bestCandidateBlockSize);
                         var day = ScheduleDays[bestCandidateStart + j];
                         var existing = day.Assignments.FirstOrDefault(a => a.TaskId == task.Id);
                         if (existing != null)
@@ -165,6 +152,7 @@ namespace TaskManager.Services
                         {
                             day.Assignments.Add(new TaskAssignment(task.Id, task.Name, assigned, taskStartDay, task.AvailableDays));
                             GlobalRebalance();
+                            EnsureCapacityLimit();
                         }
 
                     }
@@ -172,37 +160,82 @@ namespace TaskManager.Services
             }
             CleanupEmptyDays();
             GlobalRebalance();
+            EnsureCapacityLimit();
         }
 
         // Visszalépéses algoritmust használ arra, hogy minden lehetséges módon elossza a H percnyi feladatot K egymást követő nap között,
         // figyelembe véve az adott napok szabad perceit.
         private List<int[]> GetDistributions(int H, int K, int candidateStart)
         {
-            var results = new List<int[]>();
-            int[] current = new int[K];
-
-            void Recurse(int idx, int remaining)
+            // Kiszámoljuk az egyes napokra rendelkezésre álló szabad perceket.
+            int[] free = new int[K];
+            for (int i = 0; i < K; i++)
             {
-                if (idx == K)
-                {
-                    if (remaining == 0)
-                        results.Add((int[])current.Clone());
-                    return;
-                }
-                EnsureDayExists(candidateStart + idx + 1);
-                int free = ScheduleDays[candidateStart + idx].RemainingMinutes;
-                if (ScheduleDays[candidateStart + idx].Assignments.Any())
-                    free -= DaySchedule.BreakTime;
+                EnsureDayExists(candidateStart + i + 1);
+                free[i] = ScheduleDays[candidateStart + i].RemainingMinutes;
+                if (ScheduleDays[candidateStart + i].Assignments.Any())
+                    free[i] -= DaySchedule.BreakTime;
+            }
 
-                for (int x = Math.Max(0, remaining - (K - idx - 1) * free); x <= Math.Min(remaining, free); x++)
+            // Ha a teljes szabad idő kevesebb, mint H, akkor nem található megoldás.
+            int totalFree = free.Sum();
+            if (totalFree < H)
+                return new List<int[]>();
+
+            // Inicializáljuk az elosztást 0-kkal.
+            int[] distribution = new int[K];
+            int remaining = H;
+
+            // A "candidates" lista tartalmazza azokat a napok indexeit, amelyek még rendelkeznek szabad kapacitással.
+            List<int> candidates = Enumerable.Range(0, K).ToList();
+
+            // Vízszintű feltöltés: addig osztjuk el a maradék perceket,
+            // amíg az egyenletes elosztás lehetséges.
+            while (remaining > 0 && candidates.Count > 0)
+            {
+                // Megkeressük a legkisebb, még felvehető mennyiséget az aktuális jelöltek közül.
+                int delta = int.MaxValue;
+                foreach (int idx in candidates)
                 {
-                    current[idx] = x;
-                    Recurse(idx + 1, remaining - x);
+                    int available = free[idx] - distribution[idx];
+                    if (available < delta)
+                        delta = available;
+                }
+
+                int count = candidates.Count;
+                if (count * delta <= remaining)
+                {
+                    // Ha elegendő maradék van, akkor minden jelölt naphoz hozzáadjuk a delta értéket.
+                    foreach (int idx in candidates)
+                    {
+                        distribution[idx] += delta;
+                    }
+                    remaining -= count * delta;
+
+                    // Azok a napok, amelyek most beteltek, eltávolításra kerülnek a jelöltek közül.
+                    candidates = candidates.Where(idx => distribution[idx] < free[idx]).ToList();
+                }
+                else
+                {
+                    // Ha már nem osztható fel egyenlően az összes nap között, akkor
+                    // elosztjuk a maradékot az egyenlő részekre, majd a maradékot egyenként.
+                    int equalExtra = remaining / count;
+                    int extraRemainder = remaining % count;
+                    foreach (int idx in candidates)
+                    {
+                        distribution[idx] += equalExtra;
+                    }
+                    for (int i = 0; i < extraRemainder; i++)
+                    {
+                        distribution[candidates[i]] += 1;
+                    }
+                    remaining = 0;
                 }
             }
-            Recurse(0, H);
-            return results;
+
+            return new List<int[]> { distribution };
         }
+
 
         // Kiválasztja azt az elosztást a candidate blokkban, amely minimalizálja a napok EffectiveLoad közti különbséget.
         private int[] FindOptimalDistribution(int H, int K, int candidateStart)
@@ -255,58 +288,11 @@ namespace TaskManager.Services
             }
         }
 
-        // Az OptimizeSchedule metódus végigmegy a napokon, és ha két szomszédos nap között jelentős eltérés van,
-        // megpróbálja áthelyezni az osztható feladatok egy részét a kevésbé terhelt napra, az id‑alapú logika szerint.
-        //private void OptimizeSchedule()
-        //{
-        //    bool improvement;
-        //    int iterations = 0;
-        //    int maxIterations = 1000;
-        //    do
-        //    {
-        //        improvement = false;
-        //        for (int i = 0; i < ScheduleDays.Count - 1; i++)
-        //        {
-        //            DaySchedule dayA = ScheduleDays[i];
-        //            DaySchedule dayB = ScheduleDays[i + 1];
-        //            DaySchedule dayHigh = dayA.EffectiveLoad > dayB.EffectiveLoad ? dayA : dayB;
-        //            DaySchedule dayLow = dayA.EffectiveLoad > dayB.EffectiveLoad ? dayB : dayA;
-        //            int diff = dayHigh.EffectiveLoad - dayLow.EffectiveLoad;
-        //            if (diff <= 0)
-        //                continue;
-        //            foreach (var assignment in dayHigh.Assignments.Where(a => a.IsDivisible).ToList())
-        //            {
-        //                if (dayLow.DayNumber >= assignment.TaskStartDay &&
-        //                    dayLow.DayNumber < assignment.TaskStartDay + assignment.TaskAvailableDays)
-        //                {
-        //                    int availableForLow = dayLow.RemainingMinutes;
-        //                    bool alreadyPresent = dayLow.Assignments.Any(a => a.TaskId == assignment.TaskId);
-        //                    int extraBreakCost = alreadyPresent ? 0 : (dayLow.Assignments.Any() ? DaySchedule.BreakTime : 0);
-        //                    int movable = Math.Min(assignment.Minutes, diff / 2);
-        //                    int canMove = Math.Min(movable, availableForLow - extraBreakCost);
-        //                    if (canMove > 0)
-        //                    {
-        //                        assignment.Minutes -= canMove;
-        //                        if (assignment.Minutes == 0)
-        //                            dayHigh.Assignments.Remove(assignment);
-        //                        var target = dayLow.Assignments.FirstOrDefault(a => a.TaskId == assignment.TaskId);
-        //                        if (target != null)
-        //                            target.Minutes += canMove;
-        //                        else
-        //                            dayLow.Assignments.Add(new TaskAssignment(assignment.TaskId, assignment.TaskName, canMove, assignment.TaskStartDay, assignment.TaskAvailableDays));
-        //                        improvement = true;
-        //                    }
-        //                }
-        //            }
-        //        }
-        //        iterations++;
-        //    } while (improvement && iterations < maxIterations);
-        //}
 
         public void GlobalRebalance()
         {
             int iteration = 0;
-            int maxIterations = 13; // Maximális iterációk, hogy elkerüljük a végtelen ciklust
+            int maxIterations = 25; // Maximális iterációk, hogy elkerüljük a végtelen ciklust
             while (iteration < maxIterations)
             {
                 iteration++;
@@ -318,17 +304,28 @@ namespace TaskManager.Services
                     break;
                 foreach (var assignment in maxDay.Assignments.Where(a => a.IsDivisible).ToList())
                 {
-                    int transferable = Math.Min(assignment.Minutes, minDay.RemainingMinutes);
+                    // Csak azokat a napokat vesszük figyelembe, amelyek az eredeti ablakban vannak.
+                    var allowedDays = ScheduleDays
+                        .Where(d => d.DayNumber >= assignment.TaskStartDay &&
+                                    d.DayNumber < assignment.TaskStartDay + assignment.TaskAvailableDays)
+                        .OrderBy(d => d.EffectiveLoad)
+                        .ToList();
+
+                    if (!allowedDays.Any())
+                        continue;
+
+                    var targetDay = allowedDays.First();
+
+                    int transferable = Math.Min(assignment.Minutes, targetDay.RemainingMinutes);
                     if (transferable > 0)
                     {
                         assignment.Minutes -= transferable;
-                        var existing = minDay.Assignments.FirstOrDefault(a => a.TaskId == assignment.TaskId && a.IsDivisible);
+                        var existing = targetDay.Assignments.FirstOrDefault(a => a.TaskId == assignment.TaskId && a.IsDivisible);
                         if (existing != null)
                             existing.Minutes += transferable;
                         else
-                            minDay.Assignments.Add(new TaskAssignment(assignment.TaskId, assignment.TaskName, transferable, minDay.DayNumber, 1));
-                        moved = true;
-                        break;
+                            targetDay.Assignments.Add(new TaskAssignment(assignment.TaskId, assignment.TaskName, transferable, targetDay.DayNumber, assignment.TaskAvailableDays));
+                        
                     }
                 }
                 if (!moved)
