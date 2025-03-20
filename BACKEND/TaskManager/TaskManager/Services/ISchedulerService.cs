@@ -5,6 +5,6 @@ namespace TaskManager.Services
     public interface ISchedulerService
     {
         List<DaySchedule> ScheduleDays { get; set; }
-        void InsertTask(TaskItem task);
+        void AddTask(TaskItem task);
     }
 }

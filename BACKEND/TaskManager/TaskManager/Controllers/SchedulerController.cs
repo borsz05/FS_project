@@ -32,7 +32,7 @@ namespace TaskManager.Controllers
                 return BadRequest(new { message = $"The task does not fit on the number of days given." });
             }
 
-            schedulerService.InsertTask(task);
+            schedulerService.AddTask(task);
             return Ok();
         }
     }
