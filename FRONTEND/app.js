@@ -58,7 +58,7 @@ function renderSchedule(days) {
   const thTasks = document.createElement('th');
   thTasks.textContent = 'Tasks';
   thTasks.setAttribute('colspan', dayCapacity);
-  thTasks.classList.add('text-center'); 
+  thTasks.classList.add('text-center');
   headerRow.appendChild(thTasks);
 
   thead.appendChild(headerRow);
@@ -94,6 +94,13 @@ function renderSchedule(days) {
     assignments.forEach((assignment, index) => {
       if (columnsLeft <= 0) return;
 
+      // Szín hozzárendelése, ha még nincs
+      if (!taskColors[assignment.taskId]) {
+        taskColors[assignment.taskId] = generateRandomColor();
+      }
+      const bgColor = taskColors[assignment.taskId];
+      const textColor = getContrastColor(bgColor);
+
       // Feladat által igényelt percek
       let needed = assignment.minutes;
       if (needed > columnsLeft) {
@@ -104,8 +111,18 @@ function renderSchedule(days) {
       const tdTask = document.createElement('td');
       tdTask.classList.add('task');
       tdTask.setAttribute('colspan', needed);
+      tdTask.style.backgroundColor = bgColor;
+      tdTask.style.color = textColor;
       tdTask.textContent = assignment.taskName ;
       tdTask.dataset.taskId = assignment.taskId;
+
+      // Hover események
+      tdTask.addEventListener('mouseenter', () => {
+        highlightTasks(assignment.taskId, true);
+      });
+      tdTask.addEventListener('mouseleave', () => {
+        highlightTasks(assignment.taskId, false);
+      });
 
       dayRow.appendChild(tdTask);
       columnsLeft -= needed;
@@ -178,4 +195,37 @@ function createTask() {
   .catch(error => console.error(error));
 }
 
+// Szín generálás
+function generateRandomColor() {
+  return '#' + Math.floor(Math.random() * 16777215).toString(16);
+}
+
+// Szövegszín (fekete vagy fehér) a háttér kontrasztja alapján
+function getContrastColor(hex) {
+  hex = hex.replace('#', '');
+  if (hex.length === 3) {
+    hex = hex.split('').map(c => c + c).join('');
+  }
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+  return brightness > 128 ? '#000000' : '#ffffff';
+}
+
+// Hover kiemelés az összes azonos taskId-jű cellán
+function highlightTasks(taskId, highlight) {
+  const allTasks = document.querySelectorAll('.task');
+  allTasks.forEach(task => {
+    if (task.dataset.taskId === taskId) {
+      if (highlight) {
+        task.classList.add('highlighted');
+      } else {
+        task.classList.remove('highlighted');
+      }
+    }
+  });
+}
+
+// Indító hívás
 downloadAndDisplay();

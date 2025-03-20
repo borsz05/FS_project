@@ -53,6 +53,7 @@ table {
     color: #fff;
     font-size: 12px;
     line-height: 1.2rem;
+    transition: all 0.4s ease;
     position: relative;
     min-height: 30px;
     overflow: visible;
@@ -65,6 +66,13 @@ table {
     overflow: visible;
   }
   
+  /* Hover kiemelés */
+  .task.highlighted {
+    background-color: var(--bs-primary-bg-subtle) !important;
+    color: var(--bs-primary-text-emphasis) !important;
+    transform: scale(1.02);
+  }
+
   table {
     border-collapse: separate;
     border-spacing: 2px; /* Távolság a cellák között */
