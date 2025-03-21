@@ -16,6 +16,31 @@ namespace TaskManager.Services
             _allTasks.Add(newTask);
             RebuildSchedule();
         }
+        // Task frissítése: a létező taskot lecseréljük a frissített adatokra,
+        // majd újraszámoljuk az ütemtervet
+        public void UpdateTask(TaskItem updatedTask)
+        {
+            var existingTask = _allTasks.FirstOrDefault(t => t.Id == updatedTask.Id);
+            if (existingTask != null)
+            {
+                existingTask.Name = updatedTask.Name;
+                existingTask.TotalHours = updatedTask.TotalHours;
+                existingTask.AvailableDays = updatedTask.AvailableDays;
+
+                RebuildSchedule();
+            }
+        }
+
+        // Task törlése az ütemtervből, majd újraszámoljuk az ütemtervet
+        public void DeleteTask(string taskId)
+        {
+            var taskToRemove = _allTasks.FirstOrDefault(t => t.Id == taskId);
+            if (taskToRemove != null)
+            {
+                _allTasks.Remove(taskToRemove);
+                RebuildSchedule();
+            }
+        }
 
         // Teljes ütemterv újraszámolása: több lehetséges elosztás szimulációjával
         // és a legkiegyensúlyozottabb eredmény kiválasztásával
