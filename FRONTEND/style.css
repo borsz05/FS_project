@@ -1,89 +1,125 @@
-body{
-    background-color: var(	--bs-body-bg);
-    color: var(	--bs-success-text-emphasis) !important;
+body {
+  background-color: #3F4F44 !important;
+  color: #DCD7C9 !important; 
 }
-.container{
-    width:90%;
+.btn{
+  color: #DCD7C9 !important; 
 }
+
+.container {
+  width: 90%;
+}
+
 /* Táblázat beállításai */
 table {
-    border-collapse: collapse;
-    /* background-color: var(	--bs-success-bg-subtle); */
-    /* color: var(--bs-success-text-emphasis); */
-    padding: 3px;
-    overflow: visible;
-    border-radius: 20px;
-    width: 100%;
-    margin-bottom: 1rem;
-    /* box-shadow: 3px 3px 10px rgba(0, 0, 0, 0.05); */
+  border-collapse: collapse;
+  padding: 3px;
+  overflow: visible;
+  border-radius: 20px;
+  width: 100%;
+  margin-bottom: 1rem;
+}
 
-  }
-  /* Táblázat fejléce */
-  thead th {
-    background-color: var(	--bs-success-bg-subtle) !important;
-    color: var(	--bs-success-text-emphasis) !important;
-    text-align: center;
-    vertical-align: middle;
-  }
-  
-  /* A nap sorszáma és terhelése keskenyebb oszlopok legyenek */
-  col:first-child {
-    width: 70px; /* Day # */
-  }
-  col:nth-child(2) {
-    width: 80px; /* Effective Load */
-  }
-  
-  /* A maradék 600 col nagyon keskeny lesz */
-  col:nth-child(n+3) {
-    width  : 1px !important;
-  }
-  
-  /* Törzs cellái */
-  tbody td {
-    vertical-align: middle;
-    text-align: center;
-    white-space: nowrap;
-    padding: 0;
-    
-  }
-  
-  /* Task cella */
-  .task {
-    color: #fff;
-    font-size: 12px;
-    line-height: 1.2rem;
-    transition: all 0.4s ease;
-    position: relative;
-    min-height: 30px;
-    overflow: visible;
-  }
-  
-  /* Break cella */
-  .break {
-    background-color: #000 !important;
-    color: #ddd !important;
-    overflow: visible;
-  }
-  
-  /* Hover kiemelés */
-  .task.highlighted {
-    background-color: var(--bs-primary-bg-subtle) !important;
-    color: var(--bs-primary-text-emphasis) !important;
-    transform: scale(1.02);
-  }
+/* Táblázat fejléc */
+thead th {
+  background-color: #DCD7C9 !important;
+  color: #2C3930 !important;  
+  text-align: center;
+  vertical-align: middle;
+}
 
-  table {
-    border-collapse: separate;
-    border-spacing: 2px; /* Távolság a cellák között */
+/* Oszlopszélességek */
+col:first-child {
+  width: 70px; /* Day # */
+}
+col:nth-child(2) {
+  width: 80px; /* Effective Load */
+}
+col:nth-child(n+3) {
+  width: 1px !important;
+}
+
+/* Tábla törzs cellái */
+tbody td {
+  vertical-align: middle;
+  text-align: center;
+  white-space: nowrap;
+  padding: 0;
+}
+
+/* Task cella */
+.task {
+  font-size: 12px;
+  line-height: 1.2rem;
+  transition: all 0.4s ease;
+  position: relative;
+  min-height: 30px;
+  overflow: visible;
+}
+
+/* Break cella */
+.break {
+  background-color: #2C3930 !important;
+  color: #DCD7C9 !important;  
+  overflow: visible;
+}
+
+/* Hover kiemelés a task cellákon */
+.task.highlighted {
+  background-color: #A27B5C !important; 
+  color: #2C3930 !important;   
+  transform: scale(1.02);
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 2px;
 }
 th, td {
-    border-radius: 25px;
-    line-height: 1.5rem;
+  border-radius: 25px;
+  line-height: 1.5rem;
 }
-th{
-    border-radius: 25px !important;
+th {
+  border-radius: 25px !important;
 }
-.form-control{
-    border-color: var(	--bs-success-border-subtle);
+
+/* Input mezők */
+.form-control {
+  border-color: #A27B5C !important; 
+  background-color: #2C3930 !important;
+  color: #DCD7C9 !important;  
+}
+
+/* Gombok közötti margó (Update/Delete esetén) */
+#buttonContainer button {
+  margin: 0 5px;
+}
+
+
+/* Update button */
+#updateButton {
+  background-color: #FFD966 !important;
+  border-color: #FFD966 !important;
+  color: #2C3930 !important;
+}
+
+/* Delete button */
+#deleteButton {
+  background-color: #E06666 !important;
+  border-color: #E06666 !important;
+  color: #2C3930 !important;
+}
+
+#updateButton:hover {
+  background-color: #FFCA28 !important;
+  border-color: #FFCA28 !important;
+}
+
+#deleteButton:hover {
+  background-color: #CC5252 !important;
+  border-color: #CC5252 !important;
+}
+.form-control::placeholder {
+  color: #DCD7C9 !important; 
+  opacity: 50%; 
 }
