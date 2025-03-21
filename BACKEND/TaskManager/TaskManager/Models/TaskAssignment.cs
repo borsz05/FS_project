@@ -10,12 +10,13 @@
         public int TaskAvailableDays { get; set; }
 
         // Konstruktor nem darabolható feladatokhoz
-        public TaskAssignment(string taskId, string taskName, int minutes)
+        public TaskAssignment(string taskId, string taskName, int minutes, int taskAvailableDays)
         {
             TaskId = taskId;
             TaskName = taskName;
             Minutes = minutes;
             IsDivisible = false;
+            TaskAvailableDays = taskAvailableDays;
         }
 
         // Konstruktor darabolható feladatokhoz

@@ -2,7 +2,7 @@
 const dayCapacity = 600; // nap kapacitása percekben
 const breakTime = 30;    // pihenő idő percekben
 const taskColors = {};
-
+let updating=false
 // Letölti az ütemterv adatokat a szerverről és rendereli
 async function downloadAndDisplay() {
   try {
@@ -67,7 +67,7 @@ function renderSchedule(days) {
 
   // "Effective Load" cella
   const thLoad = document.createElement('th');
-  thLoad.textContent = 'Effective Load';
+  thLoad.textContent = 'Total Load';
   headerRow.appendChild(thLoad);
 
   // "Tasks" cella, 600 oszlop összevonásával
@@ -148,15 +148,17 @@ function renderSchedule(days) {
       // Hover események
       tdTask.addEventListener('mouseenter', () => {
         highlightTasks(assignment.taskId, true);
+
       });
       tdTask.addEventListener('mouseleave', () => {
-        highlightTasks(assignment.taskId, false);
+        setTimeout(()=>{highlightTasks(assignment.taskId, false);},200)
       });
 
       // Kattintás esemény: betöltjük az adatait az input mezőkbe,
       // lecseréljük a gombokat, és görgetünk az oldal tetejére
       tdTask.addEventListener('click', () => {
         // Görgetés az oldal tetejére
+        updating=true
         window.scrollTo({ top: 0, behavior: 'smooth' });
         // Adatok betöltése az input mezőkbe
         document.getElementById('create-task-name').value = assignment.taskName;
@@ -222,12 +224,26 @@ function showUpdateDeleteButtons() {
   document.getElementById('updateButton').style.display = 'inline-block';
   document.getElementById('deleteButton').style.display = 'inline-block';
 }
-
 function resetButtonToCreate() {
   document.getElementById('createButton').style.display = 'inline-block';
   document.getElementById('updateButton').style.display = 'none';
   document.getElementById('deleteButton').style.display = 'none';
+  document.getElementById('create-task-name').value=''
+  document.getElementById('create-task-totalhours').value=''
+  document.getElementById('create-task-availabledays').value=''
+  updating=false
 }
+document.addEventListener('click', function(event) {
+  const isInput = event.target.tagName === 'INPUT'
+  
+  const isTaskCell = event.target.closest('.task') || 
+                    event.target.closest('.break');
+
+  if (!isInput && !isTaskCell && updating) {
+    resetButtonToCreate();
+  }
+});
+
 
 
 let createButton = document.getElementById('createButton');
@@ -264,6 +280,7 @@ function createTask() {
   document.getElementById('create-task-name').value=''
   document.getElementById('create-task-totalhours').value=''
   document.getElementById('create-task-availabledays').value=''
+  createButton.classList.add('disabled')
 
   fetch('http://localhost:5267/scheduler', {
     method: 'POST',
@@ -377,8 +394,12 @@ function highlightTasks(taskId, highlight) {
     if (task.dataset.taskId === taskId) {
       if (highlight) {
         task.classList.add('highlighted');
+        task.classList.add('shiny');
+
       } else {
         task.classList.remove('highlighted');
+        task.classList.remove('shiny');
+
       }
     }
   });

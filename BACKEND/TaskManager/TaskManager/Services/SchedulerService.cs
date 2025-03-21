@@ -156,7 +156,7 @@ namespace TaskManager.Services
                         else
                         {
                             candidateDay.Assignments.Add(
-                                new TaskAssignment(task.Id, task.Name, minutesToAssign)
+                                new TaskAssignment(task.Id, task.Name, minutesToAssign, task.AvailableDays)
                             );
                         }
                     }
@@ -198,7 +198,7 @@ namespace TaskManager.Services
                         else
                         {
                             candidateDay.Assignments.Add(
-                                new TaskAssignment(task.Id, task.Name, minutesToAssign)
+                                new TaskAssignment(task.Id, task.Name, minutesToAssign, task.AvailableDays)
                             );
                         }
                     }

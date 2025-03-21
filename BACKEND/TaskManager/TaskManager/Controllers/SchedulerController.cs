@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using System.Threading.Tasks;
 using TaskManager.Models;
 using TaskManager.Services;
 
@@ -41,6 +42,14 @@ namespace TaskManager.Controllers
         [HttpPut("{id}")]
         public IActionResult UpdateTask(string id, [FromBody] TaskItem updatedTask)
         {
+            if (!updatedTask.Divisible && updatedTask.TotalMinutes > DaySchedule.Capacity)
+            {
+                return BadRequest(new { message = $"The task is too long, with a maximum of {DaySchedule.Capacity / 60} hours allowed per day." });
+            }
+            else if (updatedTask.Divisible && updatedTask.TotalMinutes > DaySchedule.Capacity * updatedTask.AvailableDays)
+            {
+                return BadRequest(new { message = $"The task does not fit on the number of days given." });
+            }
             if (id != updatedTask.Id)
             {
                 return BadRequest(new { message = "Task ID mismatch." });
