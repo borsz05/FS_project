@@ -232,12 +232,15 @@ function resetButtonToCreate() {
   document.getElementById('create-task-totalhours').value=''
   document.getElementById('create-task-availabledays').value=''
   updating=false
+  document.getElementById('updateButton').classList.remove('disabled')
+
 }
 document.addEventListener('click', function(event) {
   const isInput = event.target.tagName === 'INPUT'
   
   const isTaskCell = event.target.closest('.task') || 
-                    event.target.closest('.break');
+                    event.target.closest('.break') ||
+                    event.target.closest('#buttonContainer')
 
   if (!isInput && !isTaskCell && updating) {
     resetButtonToCreate();

@@ -26,10 +26,12 @@
         <label for="create-task-availabledays" class="form-label">Days</label>
         <input type="number" id="create-task-availabledays" class="form-control mb-3 rounded-pill" placeholder="Task's days">
       </div>
-      <div id="buttonContainer" class="col-md-12 d-flex justify-content-center">
-        <button onclick="createTask()" id="createButton" class="btn btn-sm btn-success rounded-pill">Add new task</button>
-        <button onclick="updateTask()" id="updateButton" class="btn btn-sm btn-warning rounded-pill me-2" style="display:none;">Update Task</button>
-        <button onclick="deleteTask()" id="deleteButton" class="btn btn-sm btn-danger rounded-pill" style="display:none;">Delete Task</button>
+      <div class="container text-center">
+        <div id="buttonContainer">
+          <button onclick="createTask()" id="createButton" class="btn btn-sm btn-success rounded-pill">Add new task</button>
+          <button onclick="updateTask()" id="updateButton" class="btn btn-sm btn-warning rounded-pill me-2" style="display:none;">Update Task</button>
+          <button onclick="deleteTask()" id="deleteButton" class="btn btn-sm btn-danger rounded-pill" style="display:none;">Delete Task</button>
+        </div>
       </div>
     </div>
   </div>
